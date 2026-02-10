@@ -266,14 +266,14 @@ export default function ExercisePage() {
 
           {/* Feedback */}
           {feedback && (
-            <div className="border border-border rounded-xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300">
+            <div className="rounded-xl overflow-hidden animate-in fade-in slide-in-from-bottom-2 duration-300 bg-bg-card border border-border">
               <div
-                className={`px-5 py-4 font-semibold text-sm ${
+                className={`px-5 py-4 font-semibold text-sm flex items-center gap-2 ${
                   feedback.status === 'pass'
-                    ? 'bg-accent-green/12 text-accent-green border-b border-accent-green/20'
+                    ? 'bg-[#1a3a2a] text-[#4ade80] border-b border-[#2a5a3a]'
                     : feedback.status === 'partial'
-                    ? 'bg-accent-yellow/12 text-accent-yellow border-b border-accent-yellow/20'
-                    : 'bg-accent-red/12 text-accent-red border-b border-accent-red/20'
+                    ? 'bg-[#3a3520] text-[#fbbf24] border-b border-[#5a5030]'
+                    : 'bg-[#3a1a1a] text-[#fca5a5] border-b border-[#5a2a2a]'
                 }`}
               >
                 {feedback.status === 'pass'
@@ -281,28 +281,31 @@ export default function ExercisePage() {
                   : feedback.status === 'partial'
                   ? '⚠ Partial Credit'
                   : '✗ Needs Improvement'}
-                <span className="ml-2 text-xs opacity-80">Score: {feedback.score}/100</span>
+                <span className="ml-auto text-xs opacity-90">Score: {feedback.score}/100</span>
               </div>
-              <div className="px-5 py-4 text-sm text-text-secondary leading-relaxed">
+              <div className="px-5 py-4 text-sm text-text-primary leading-relaxed border-b border-border">
                 {feedback.feedback}
               </div>
               {feedback.criteriaResults.length > 0 && (
-                <div className="px-5 pb-4 space-y-1.5">
+                <div className="px-5 py-4 space-y-2.5">
+                  <div className="text-xs font-semibold text-text-muted uppercase tracking-wider mb-2">Criteria</div>
                   {feedback.criteriaResults.map((c, i) => (
                     <div
                       key={i}
-                      className={`flex items-start gap-2 text-xs ${c.met ? 'text-accent-green' : 'text-accent-red'}`}
+                      className="flex items-start gap-2.5 text-sm"
                     >
-                      <span className="mt-0.5">{c.met ? '✓' : '✗'}</span>
-                      <span>
+                      <span className={`mt-0.5 font-bold ${c.met ? 'text-[#4ade80]' : 'text-[#fca5a5]'}`}>
+                        {c.met ? '✓' : '✗'}
+                      </span>
+                      <span className="text-text-primary">
                         <strong>{c.label}</strong>
-                        {c.comment && <span className="text-text-muted ml-1">— {c.comment}</span>}
+                        {c.comment && <span className="text-text-secondary ml-1.5">— {c.comment}</span>}
                       </span>
                     </div>
                   ))}
                 </div>
               )}
-              <div className="px-5 py-3 bg-bg-secondary text-sm font-semibold flex items-center gap-1.5">
+              <div className="px-5 py-3 bg-bg-secondary border-t border-border text-sm font-semibold flex items-center gap-1.5">
                 Points earned: <span className="text-accent-orange font-mono">+{feedback.pointsEarned}</span>
               </div>
             </div>
