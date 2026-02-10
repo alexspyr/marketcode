@@ -3,23 +3,76 @@ import { openai } from '@/lib/openai';
 import { getExerciseById } from '@/lib/exercises';
 import type { EvaluationResponse } from '@/lib/types';
 
+function keywordFallback(exerciseId: number, answer: string): NextResponse {
+  const exercise = getExerciseById(exerciseId);
+  if (!exercise) {
+    return NextResponse.json({ error: 'Exercise not found' }, { status: 404 });
+  }
+
+  const lowerAnswer = answer.toLowerCase();
+  const criteriaResults = exercise.criteria.map((c) => {
+    const keywords = c.keyword.split('|');
+    const met = keywords.some((kw) => {
+      const regex = new RegExp(kw.replace(/\./g, '[\\s\\-_.]?'), 'i');
+      return regex.test(lowerAnswer);
+    });
+    return { label: c.label, met, comment: met ? 'Keyword found' : 'Not detected in answer' };
+  });
+
+  const metCount = criteriaResults.filter((c) => c.met).length;
+  const ratio = metCount / criteriaResults.length;
+  const score = Math.round(ratio * 100);
+
+  let status: 'pass' | 'partial' | 'fail';
+  let pointsEarned: number;
+  if (ratio >= 0.7) {
+    status = 'pass';
+    pointsEarned = exercise.points;
+  } else if (ratio >= 0.4) {
+    status = 'partial';
+    pointsEarned = Math.round(exercise.points * 0.4);
+  } else {
+    status = 'fail';
+    pointsEarned = 0;
+  }
+
+  return NextResponse.json({
+    status,
+    score,
+    pointsEarned,
+    feedback: 'AI evaluation unavailable. Using keyword-based scoring as fallback.',
+    criteriaResults,
+  } satisfies EvaluationResponse);
+}
+
 export async function POST(request: NextRequest) {
+  // Parse body once upfront so it's available for both LLM and fallback
+  let exerciseId: number;
+  let answer: string;
+
   try {
-    const { exerciseId, answer } = await request.json();
+    const body = await request.json();
+    exerciseId = body.exerciseId;
+    answer = body.answer;
+  } catch {
+    return NextResponse.json({ error: 'Invalid request body' }, { status: 400 });
+  }
 
-    if (!exerciseId || !answer || typeof answer !== 'string') {
-      return NextResponse.json({ error: 'Missing exerciseId or answer' }, { status: 400 });
-    }
+  if (!exerciseId || !answer || typeof answer !== 'string') {
+    return NextResponse.json({ error: 'Missing exerciseId or answer' }, { status: 400 });
+  }
 
-    if (answer.trim().length < 30) {
-      return NextResponse.json({ error: 'Answer too short' }, { status: 400 });
-    }
+  if (answer.trim().length < 30) {
+    return NextResponse.json({ error: 'Answer too short' }, { status: 400 });
+  }
 
-    const exercise = getExerciseById(exerciseId);
-    if (!exercise) {
-      return NextResponse.json({ error: 'Exercise not found' }, { status: 404 });
-    }
+  const exercise = getExerciseById(exerciseId);
+  if (!exercise) {
+    return NextResponse.json({ error: 'Exercise not found' }, { status: 404 });
+  }
 
+  // Try OpenAI evaluation
+  try {
     const criteriaList = exercise.criteria
       .map((c, i) => `${i + 1}. "${c.label}" (keywords: ${c.keyword})`)
       .join('\n');
@@ -106,52 +159,9 @@ You MUST respond with valid JSON only, in this exact format:
 
     return NextResponse.json(response);
   } catch (error) {
-    console.error('Evaluation error:', error);
+    console.error('OpenAI evaluation error:', error instanceof Error ? error.message : error);
 
     // Fallback to keyword-based evaluation
-    try {
-      const { exerciseId, answer } = await request.clone().json();
-      const exercise = getExerciseById(exerciseId);
-      if (!exercise) {
-        return NextResponse.json({ error: 'Exercise not found' }, { status: 404 });
-      }
-
-      const lowerAnswer = answer.toLowerCase();
-      const criteriaResults = exercise.criteria.map((c) => {
-        const keywords = c.keyword.split('|');
-        const met = keywords.some((kw) => {
-          const regex = new RegExp(kw.replace(/\./g, '[\\s\\-_.]?'), 'i');
-          return regex.test(lowerAnswer);
-        });
-        return { label: c.label, met, comment: met ? 'Keyword found' : 'Not detected in answer' };
-      });
-
-      const metCount = criteriaResults.filter((c) => c.met).length;
-      const ratio = metCount / criteriaResults.length;
-      const score = Math.round(ratio * 100);
-
-      let status: 'pass' | 'partial' | 'fail';
-      let pointsEarned: number;
-      if (ratio >= 0.7) {
-        status = 'pass';
-        pointsEarned = exercise.points;
-      } else if (ratio >= 0.4) {
-        status = 'partial';
-        pointsEarned = Math.round(exercise.points * 0.4);
-      } else {
-        status = 'fail';
-        pointsEarned = 0;
-      }
-
-      return NextResponse.json({
-        status,
-        score,
-        pointsEarned,
-        feedback: 'AI evaluation unavailable. Using keyword-based scoring as fallback.',
-        criteriaResults,
-      } satisfies EvaluationResponse);
-    } catch {
-      return NextResponse.json({ error: 'Evaluation failed' }, { status: 500 });
-    }
+    return keywordFallback(exerciseId, answer);
   }
 }

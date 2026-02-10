@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import Link from 'next/link';
 
@@ -8,6 +8,11 @@ export default function LoginPage() {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'sent' | 'error'>('idle');
   const [errorMsg, setErrorMsg] = useState('');
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -46,7 +51,13 @@ export default function LoginPage() {
             Enter your email to receive a magic sign-in link. No password needed.
           </p>
 
-          {status === 'sent' ? (
+          {!mounted ? (
+            <div className="space-y-4">
+              <div className="h-5 w-24 bg-bg-input rounded animate-pulse" />
+              <div className="h-12 bg-bg-input rounded-lg animate-pulse" />
+              <div className="h-12 bg-accent-green/30 rounded-lg animate-pulse" />
+            </div>
+          ) : status === 'sent' ? (
             <div className="text-center">
               <div className="w-16 h-16 bg-accent-green/15 rounded-full flex items-center justify-center mx-auto mb-4">
                 <span className="text-accent-green text-2xl">✓</span>
@@ -78,6 +89,8 @@ export default function LoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="you@example.com"
                 required
+                autoComplete="email"
+                suppressHydrationWarning
                 className="w-full bg-bg-input border border-border rounded-lg px-4 py-3 text-text-primary text-sm focus:outline-none focus:border-accent-orange transition-colors"
               />
 
